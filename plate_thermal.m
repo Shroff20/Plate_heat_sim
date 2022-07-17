@@ -1,94 +1,65 @@
 clear all
 close all
 clc
+% 
+% syms T(t,x,y)
+% syms eps sig tz hc Ta rho Cp k t v
+% syms hCoeff(t)
+% 
+% 
+% % Boundary conditions and loads
+% v = 1+heaviside(t-1000)*100;      % fluid velocity (m/s)  (must be 2 to 20)
+% U1 = @(location, state) 1000*sin(.001*state.time);
+% U2 = @(location, state) 1000*sin(.001*state.time);
+% U3 = @(location, state) 1000*sin(.001*state.time);
+% U4 = @(location, state) 1000*sin(.001*state.time);
+% Tinitial = 2000;
+% 
+% % Material properties
+% kThermal = 400;             % thermal conductivity of copper, W/(m-K)
+% rhoCopper = 8960;           % density of copper, kg/m^3
+% specificHeat = 386;         % specific heat of copper, J/(kg-K)
+% thick = 0.01;               % plate thickness in meters
+% stefanBoltz = 5.670373e-8;  % Stefan-Boltzmann constant, W/(m^2-K^4)
+% hCoeff = 1+v;               % convection coefficient, W/(m^2-K)
+% tAmbient = 300;             % the ambient temperature
+% emiss = 0.5;                % emissivity of the plate surface
+% 
+% % Geometry and mesh
+% width = 1; % (m)
+% height = 1; % (m)
+% elSize = 0.1; % element size
+% 
+% % solver
+% tend = 10000;  % end time (s)
+% dt = 50; % time step (s)
 
-syms T(t,x,y)
-syms eps sig tz hc Ta rho Cp k t v
-syms hCoeff(t)
+setup = GetDefaultInputs()
 
+model = makeModel(setup)
 
-% Boundary conditions and loads
-v = 1+heaviside(t-1000)*100;      % fluid velocity (m/s)  (must be 2 to 20)
-U1 = @(location, state) 1000*sin(.001*state.time);
-U2 = @(location, state) 1000*sin(.001*state.time);
-U3 = @(location, state) 1000*sin(.001*state.time);
-U4 = @(location, state) 1000*sin(.001*state.time);
-Tinitial = 2000;
-
-% Material properties
-kThermal = 400;             % thermal conductivity of copper, W/(m-K)
-rhoCopper = 8960;           % density of copper, kg/m^3
-specificHeat = 386;         % specific heat of copper, J/(kg-K)
-thick = 0.01;               % plate thickness in meters
-stefanBoltz = 5.670373e-8;  % Stefan-Boltzmann constant, W/(m^2-K^4)
-hCoeff = 1+v;               % convection coefficient, W/(m^2-K)
-tAmbient = 300;             % the ambient temperature
-emiss = 0.5;                % emissivity of the plate surface
-
-% Geometry and mesh
-width = 1; % (m)
-height = 1; % (m)
-elSize = 0.1; % element size
-
-% solver
-tend = 10000;  % end time (s)
-dt = 50; % time step (s)
-
-
-%%  Make 
-
-Qc = hc*(T - Ta);  % heat transfer due to convection
-Qr = eps*sig*(T^4 - Ta^4); % heat transfer due to radiation
-pdeeq = (rho*Cp*tz*diff(T,t) - k*tz*laplacian(T,[x,y]) + 2*Qc + 2*Qr) % pde for temperature of a thin plate
-
-symCoeffs = pdeCoefficients(pdeeq,T,'Symbolic',true)
-
-symVars = [eps sig tz hc Ta rho Cp k];
-symVals = [emiss stefanBoltz thick hCoeff tAmbient rhoCopper specificHeat kThermal];
-symCoeffs = subs(symCoeffs,symVars,symVals);
-coeffs = pdeCoefficientsToDouble(symCoeffs)
-numberOfPDE = 1;
-model = createpde(numberOfPDE);
-
+hfig = PlotGeoemtry(model);
 
 %%
-gdm = [3 4 0 width width 0 0 0 height height]';
-g = decsg(gdm,'S1',('S1')');
 
-geometryFromEdges(model,g);
-
-figure; 
-pdegplot(model,'EdgeLabels','on'); 
-axis([-0.1 1.1 -0.1 1.1]);
-title('Geometry with Edge Labels Displayed');
+U = {setup.loads.U1, setup.loads.U2, setup.loads.U3, setup.loads.U4};
+Tinit = setup.ICs.Tinit 
+tend = setup.solver.tend;          
+dt = setup.solver.dt;           
+RelativeTolerance = setup.solver.RelativeTolerance ;
+AbsoluteTolerance = setup.solver.SolverOptions.AbsoluteTolerance ;
 
 
-msh = generateMesh(model,'Hmax',elSize);
-figure; 
-pdeplot(model); 
-axis equal
-title('Plate with Triangular Element Mesh');
-xlabel('X-coordinate, meters');
-ylabel('Y-coordinate, meters');
-
-%%
-specifyCoefficients(model,'m',coeffs.m,'d',coeffs.d, ...
-    'c',coeffs.c,'a',coeffs.a,'f',coeffs.f);
-
-
-U = {U1, U2, U3, U4};
 applyBoundaryCondition(model,'dirichlet','edge',1,'u',U{1});
 applyBoundaryCondition(model,'dirichlet','edge',2,'u',U{2});
 applyBoundaryCondition(model,'dirichlet','edge',3,'u',U{3});
 applyBoundaryCondition(model,'dirichlet','edge',4,'u',U{4});
 
-setInitialConditions(model,Tinitial);
-%setInitialConditions(model,1000,'edge',1);
-
+setInitialConditions(model,Tinit);
 tlist = 0:dt:tend;
 
-model.SolverOptions.RelativeTolerance = 1.0e-3; 
-model.SolverOptions.AbsoluteTolerance = 1.0e-4;
+model.SolverOptions.RelativeTolerance = RelativeTolerance; 
+model.SolverOptions.AbsoluteTolerance =  AbsoluteTolerance;
 
 R = solvepde(model,tlist);
 u = R.NodalSolution;
@@ -114,9 +85,7 @@ function setup = GetDefaultInputs()
 
 setup = [];
 
-syms T(t,x,y)
-syms eps sig tz hc Ta rho Cp k t v
-syms hCoeff(t)
+syms t
 
 % Boundary conditions and loads
 setup.loads.v = 1+heaviside(t-1000)*100;      % fluid velocity (m/s)  (must be 2 to 20)
@@ -124,16 +93,16 @@ setup.loads.U1 = @(location, state) 1000*sin(.001*state.time);
 setup.loads.U2 = @(location, state) 1000*sin(.001*state.time);
 setup.loads.U3 = @(location, state) 1000*sin(.001*state.time);
 setup.loads.U4 = @(location, state) 1000*sin(.001*state.time);
-setup.initialConditions.Tinitial = 2000;
+setup.ICs.Tinit = 2000;
 
 % Material properties
-setup.material.kThermal = 400;             % thermal conductivity of copper, W/(m-K)
-setup.material.rhoCopper = 8960;           % density of copper, kg/m^3
-setup.material.specificHeat = 386;         % specific heat of copper, J/(kg-K)
-setup.material.thick = 0.01;               % plate thickness in meters
-setup.material.stefanBoltz = 5.670373e-8;  % Stefan-Boltzmann constant, W/(m^2-K^4)
-setup.material.hCoeff = 1+v;               % convection coefficient, W/(m^2-K)
-setup.material.tAmbient = 300;             % the ambient temperature
+setup.material.k = 400;             % thermal conductivity of copper, W/(m-K)
+setup.material.rho = 8960;           % density of copper, kg/m^3
+setup.material.cp = 386;         % specific heat, J/(kg-K)
+setup.material.tz = 0.01;               % plate thickness in meters
+setup.material.sig = 5.670373e-8;  % Stefan-Boltzmann constant, W/(m^2-K^4)
+setup.material.h = 1+setup.loads.v;               % convection coefficient, W/(m^2-K)
+setup.material.Ta = 300;             % the ambient temperature
 setup.material.emiss = 0.5;                % emissivity of the plate surface
 
 % Geometry and mesh
@@ -149,4 +118,58 @@ setup.solver.SolverOptions.AbsoluteTolerance = 1.0e-3;  % solver absolute tolera
 
 end 
 
+function model = makeModel(setup)
+
+syms T(t,x,y)
+
+emiss = setup.material.emiss;
+sig = setup.material.sig;
+tz = setup.material.tz;
+hc = setup.material.h ;
+Ta = setup.material.Ta;
+rho = setup.material.rho;
+cp = setup.material.cp ;
+k = setup.material.k;
+width = setup.geometry.width;
+height = setup.geometry.height;
+elSize = setup.geometry.elSize;
+
+Qc = hc*(T - Ta);  % heat transfer due to convection
+Qr = emiss*sig*(T^4 - Ta^4); % heat transfer due to radiation
+pdeeq = (rho*cp*tz*diff(T,t) - k*tz*laplacian(T,[x,y]) + 2*Qc + 2*Qr); % pde for temperature of a thin plate
+
+symCoeffs = pdeCoefficients(pdeeq,T,'Symbolic',true);
+coeffs = pdeCoefficientsToDouble(symCoeffs);
+numberOfPDE = 1;
+model = createpde(numberOfPDE);
+
+% make mesh
+gdm = [3 4 0 width width 0 0 0 height height]';
+g = decsg(gdm,'S1',('S1')');
+
+geometryFromEdges(model,g);
+msh = generateMesh(model,'Hmax',elSize);
+specifyCoefficients(model,'m',coeffs.m,'d',coeffs.d, ...
+    'c',coeffs.c,'a',coeffs.a,'f',coeffs.f);
+
+end 
+
+
+function hfig = PlotGeoemtry(model)
+
+hfig = figure();
+subplot(1,2,1);
+pdegplot(model,'EdgeLabels','on'); 
+axis([-0.1 1.1 -0.1 1.1]);
+title('geometry');
+ 
+subplot(1,2,2);
+pdeplot(model); 
+axis equal
+axis([-0.1 1.1 -0.1 1.1]);
+title('mesh');
+xlabel('x');
+ylabel('y');
+
+end 
 
