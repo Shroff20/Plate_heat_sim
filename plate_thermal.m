@@ -1,84 +1,20 @@
 clear all
 close all
 clc
-% 
-% syms T(t,x,y)
-% syms eps sig tz hc Ta rho Cp k t v
-% syms hCoeff(t)
-% 
-% 
-% % Boundary conditions and loads
-% v = 1+heaviside(t-1000)*100;      % fluid velocity (m/s)  (must be 2 to 20)
-% U1 = @(location, state) 1000*sin(.001*state.time);
-% U2 = @(location, state) 1000*sin(.001*state.time);
-% U3 = @(location, state) 1000*sin(.001*state.time);
-% U4 = @(location, state) 1000*sin(.001*state.time);
-% Tinitial = 2000;
-% 
-% % Material properties
-% kThermal = 400;             % thermal conductivity of copper, W/(m-K)
-% rhoCopper = 8960;           % density of copper, kg/m^3
-% specificHeat = 386;         % specific heat of copper, J/(kg-K)
-% thick = 0.01;               % plate thickness in meters
-% stefanBoltz = 5.670373e-8;  % Stefan-Boltzmann constant, W/(m^2-K^4)
-% hCoeff = 1+v;               % convection coefficient, W/(m^2-K)
-% tAmbient = 300;             % the ambient temperature
-% emiss = 0.5;                % emissivity of the plate surface
-% 
-% % Geometry and mesh
-% width = 1; % (m)
-% height = 1; % (m)
-% elSize = 0.1; % element size
-% 
-% % solver
-% tend = 10000;  % end time (s)
-% dt = 50; % time step (s)
+
+
 
 setup = GetDefaultInputs()
-
-model = makeModel(setup)
-
+model = MakeModel(setup)
 hfig = PlotGeoemtry(model);
+model = ApplyLoadsAndICs(model, setup);
+[model, results] = SolvePDE(model, setup);
+hfig = PlotNodalSolutions(results);
 
-%%
-
-U = {setup.loads.U1, setup.loads.U2, setup.loads.U3, setup.loads.U4};
-Tinit = setup.ICs.Tinit 
-tend = setup.solver.tend;          
-dt = setup.solver.dt;           
-RelativeTolerance = setup.solver.RelativeTolerance ;
-AbsoluteTolerance = setup.solver.SolverOptions.AbsoluteTolerance ;
-
-
-applyBoundaryCondition(model,'dirichlet','edge',1,'u',U{1});
-applyBoundaryCondition(model,'dirichlet','edge',2,'u',U{2});
-applyBoundaryCondition(model,'dirichlet','edge',3,'u',U{3});
-applyBoundaryCondition(model,'dirichlet','edge',4,'u',U{4});
-
-setInitialConditions(model,Tinit);
-tlist = 0:dt:tend;
-
-model.SolverOptions.RelativeTolerance = RelativeTolerance; 
-model.SolverOptions.AbsoluteTolerance =  AbsoluteTolerance;
-
-R = solvepde(model,tlist);
-u = R.NodalSolution;
-figure; 
-plot(tlist,u(:,:));
-grid on
-title 'Temperature Along the Top Edge of the Plate as a Function of Time'
-xlabel 'Time (s)'
-ylabel 'Temperature (K)'
+hfig = PlotFieldSolution(model, results, -1)
 
 
 %%
-figure;
-pdeplot(model,'XYData',u(:,end),'Contour','on','ColorMap','jet');
-title(sprintf('Plate Temperature\nt = %d seconds', ...
-  tlist(1,end)));
-xlabel 'x'
-ylabel 'y'
-axis equal;
 
 
 function setup = GetDefaultInputs()
@@ -118,7 +54,7 @@ setup.solver.SolverOptions.AbsoluteTolerance = 1.0e-3;  % solver absolute tolera
 
 end 
 
-function model = makeModel(setup)
+function model = MakeModel(setup)
 
 syms T(t,x,y)
 
@@ -172,4 +108,72 @@ xlabel('x');
 ylabel('y');
 
 end 
+
+function model = ApplyLoadsAndICs(model, setup)
+
+
+U = {setup.loads.U1, setup.loads.U2, setup.loads.U3, setup.loads.U4};
+Tinit = setup.ICs.Tinit ;
+% tend = setup.solver.tend;          
+% dt = setup.solver.dt;    
+% RelativeTolerance = setup.solver.RelativeTolerance ;
+% AbsoluteTolerance = setup.solver.SolverOptions.AbsoluteTolerance ;
+
+
+applyBoundaryCondition(model,'dirichlet','edge',1,'u',U{1});
+applyBoundaryCondition(model,'dirichlet','edge',2,'u',U{2});
+applyBoundaryCondition(model,'dirichlet','edge',3,'u',U{3});
+applyBoundaryCondition(model,'dirichlet','edge',4,'u',U{4});
+
+setInitialConditions(model,Tinit);
+
+end 
+
+function [model, results] = SolvePDE(model, setup)
+
+tend = setup.solver.tend;          
+dt = setup.solver.dt;    
+RelativeTolerance = setup.solver.RelativeTolerance ;
+AbsoluteTolerance = setup.solver.SolverOptions.AbsoluteTolerance ;
+
+tspan = 0:dt:tend;
+model.SolverOptions.RelativeTolerance = RelativeTolerance; 
+model.SolverOptions.AbsoluteTolerance =  AbsoluteTolerance;
+
+results = solvepde(model,tspan);
+
+end 
+
+
+function hfig = PlotNodalSolutions(results)
+u = results.NodalSolution;
+tlist = results.SolutionTimes;
+hfig = figure(); 
+plot(tlist,u(:,:));
+grid on
+title 'nodal temperatures';
+xlabel 'time (s)';
+ylabel 'temperature';
+end 
+
+function hfig = PlotFieldSolution(model, results, frame)
+
+tlist = results.SolutionTimes;
+u = results.NodalSolution;
+
+if frame == -1
+    frame = length(tlist);
+end 
+
+%%
+hfig = figure;
+pdeplot(model,'XYData',u(:,frame),'Contour','on','ColorMap','jet');
+title(sprintf('Plate Temperature\nt = %d seconds', ...
+  tlist(1,frame)));
+xlabel 'x'
+ylabel 'y'
+axis equal;
+
+end 
+
 
