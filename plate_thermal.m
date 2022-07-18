@@ -3,12 +3,16 @@ close all
 clc
 
 
-setup = GetDefaultInputs()
-model = MakeModel(setup)
-model = ApplyLoadsAndICs(model, setup);
-[model, results] = SolvePDE(model, setup);
+% v = 1+heaviside(t-1000)*100;      % fluid velocity (m/s)  (must be 2 to 20)
+% setup.loads.U1 = @(location, state) 1000*sin(.001*state.time) + 1000;
+% setup.loads.U2 = @(location, state) 1000*sin(.001*state.time) + 1000;
+% setup.loads.U3 = @(location, state) 1000*sin(.001*state.time) + 1000;
+% setup.loads.U4 = @(location, state) 1000*sin(.001*state.time) + 1200;
+% setup.ICs.Tinit = 2000;
 
-Tinterp = InterpolateResults(results, setup);
+
+[Tinterp, setup, model, results] =  RunPlateSim()
+
 
 hfig1 = PlotGeoemtry(model);
 hfig2 = PlotNodalSolutions(results);
@@ -17,6 +21,28 @@ hfig4 = PlotInterpolatedSolution(Tinterp, setup, -1);
 
 
 %%
+
+function [Tinterp, setup, model, results] =  RunPlateSim()
+U = []
+velocity = []
+Tinit = []
+
+setup = GetDefaultInputs()
+setup = ModifyLoadsAndICs(setup, U, velocity, Tinit)
+model = MakeModel(setup)
+[model, results] = SolvePDE(model, setup);
+Tinterp = InterpolateResults(results, setup);
+
+end 
+
+
+
+
+function setup = ModifyLoadsAndICs(setup, U, velocity, Tinit)
+
+
+end 
+
 
 function hfig = PlotInterpolatedSolution(Tinterp, setup, frame)
 
@@ -31,12 +57,11 @@ if frame ==-1
     frame  = size(Tinterp, 2);
 end 
 
-Tinterp = Tinterp(:, frame);
-Tinterp = reshape(Tinterp, size(X, 1), []);
+Tinterp2 = reshape( Tinterp(:, frame), size(X, 1), []);
 
 hfig = figure();
 colormap('jet')
-contourf(X, Y, Tinterp, 250, 'LineColor','none')
+contourf(X, Y, Tinterp2, 250, 'LineColor','none')
 colorbar()
 axis equal
 
@@ -62,11 +87,12 @@ syms t
 
 % Boundary conditions and loads
 setup.loads.v = 1+heaviside(t-1000)*100;      % fluid velocity (m/s)  (must be 2 to 20)
-setup.loads.U1 = @(location, state) 1000*sin(.001*state.time) + 1000;
-setup.loads.U2 = @(location, state) 1000*sin(.001*state.time) + 1000;
-setup.loads.U3 = @(location, state) 1000*sin(.001*state.time) + 1000;
-setup.loads.U4 = @(location, state) 1000*sin(.001*state.time) + 1200;
-setup.ICs.Tinit = 2000;
+U1 = @(location, state) 1000*sin(.001*state.time) + 1000;
+U2 = @(location, state) 1000*sin(.001*state.time) + 1000;
+U3 = @(location, state) 1000*sin(.001*state.time) + 1000;
+U4 = @(location, state) 1000*sin(.001*state.time) + 1200;
+setup.loads.BCs = {U1, U2, U3, U4};
+setup.ICs.Tinit = 1000;
 
 % Material properties
 setup.material.k = 400;             % thermal conductivity of copper, W/(m-K)
@@ -148,25 +174,6 @@ ylabel('y');
 
 end 
 
-function model = ApplyLoadsAndICs(model, setup)
-
-
-U = {setup.loads.U1, setup.loads.U2, setup.loads.U3, setup.loads.U4};
-Tinit = setup.ICs.Tinit ;
-% tend = setup.solver.tend;          
-% dt = setup.solver.dt;    
-% RelativeTolerance = setup.solver.RelativeTolerance ;
-% AbsoluteTolerance = setup.solver.SolverOptions.AbsoluteTolerance ;
-
-
-applyBoundaryCondition(model,'dirichlet','edge',1,'u',U{1});
-applyBoundaryCondition(model,'dirichlet','edge',2,'u',U{2});
-applyBoundaryCondition(model,'dirichlet','edge',3,'u',U{3});
-applyBoundaryCondition(model,'dirichlet','edge',4,'u',U{4});
-
-setInitialConditions(model,Tinit);
-
-end 
 
 function [model, results] = SolvePDE(model, setup)
 
@@ -174,6 +181,14 @@ tend = setup.solver.tend;
 dt = setup.solver.dt;    
 RelativeTolerance = setup.solver.RelativeTolerance ;
 AbsoluteTolerance = setup.solver.SolverOptions.AbsoluteTolerance ;
+U = setup.loads.BCs;
+Tinit = setup.ICs.Tinit ;
+
+applyBoundaryCondition(model,'dirichlet','edge',1,'u',U{1});
+applyBoundaryCondition(model,'dirichlet','edge',2,'u',U{2});
+applyBoundaryCondition(model,'dirichlet','edge',3,'u',U{3});
+applyBoundaryCondition(model,'dirichlet','edge',4,'u',U{4});
+setInitialConditions(model,Tinit);
 
 tspan = 0:dt:tend;
 model.SolverOptions.RelativeTolerance = RelativeTolerance; 
@@ -214,5 +229,4 @@ ylabel 'y'
 axis equal;
 
 end 
-
 
