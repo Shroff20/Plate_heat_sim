@@ -3,18 +3,55 @@ close all
 clc
 
 
-
 setup = GetDefaultInputs()
 model = MakeModel(setup)
-hfig = PlotGeoemtry(model);
 model = ApplyLoadsAndICs(model, setup);
 [model, results] = SolvePDE(model, setup);
-hfig = PlotNodalSolutions(results);
 
-hfig = PlotFieldSolution(model, results, -1)
+Tinterp = InterpolateResults(results, setup);
+
+hfig1 = PlotGeoemtry(model);
+hfig2 = PlotNodalSolutions(results);
+hfig3 = PlotFieldSolution(model, results, -1)  % -1 for last frame
+hfig4 = PlotInterpolatedSolution(Tinterp, setup, -1);
 
 
 %%
+
+function hfig = PlotInterpolatedSolution(Tinterp, setup, frame)
+
+
+
+xinterp = setup.geometry.xinterp;
+yinterp = setup.geometry.yinterp;
+
+[X, Y] = meshgrid(xinterp, yinterp);
+
+if frame ==-1
+    frame  = size(Tinterp, 2);
+end 
+
+Tinterp = Tinterp(:, frame);
+Tinterp = reshape(Tinterp, size(X, 1), []);
+
+hfig = figure();
+colormap('jet')
+contourf(X, Y, Tinterp, 250, 'LineColor','none')
+colorbar()
+axis equal
+
+end 
+
+
+
+function Tinterp = InterpolateResults(results, setup)
+
+[X,Y] = meshgrid(setup.geometry.xinterp, setup.geometry.yinterp);
+interpPoints = [X(:),Y(:)]';
+Nt = 1:length(results.SolutionTimes);
+Tinterp = interpolateSolution(results,interpPoints, Nt);
+
+end 
 
 
 function setup = GetDefaultInputs()
@@ -25,10 +62,10 @@ syms t
 
 % Boundary conditions and loads
 setup.loads.v = 1+heaviside(t-1000)*100;      % fluid velocity (m/s)  (must be 2 to 20)
-setup.loads.U1 = @(location, state) 1000*sin(.001*state.time);
-setup.loads.U2 = @(location, state) 1000*sin(.001*state.time);
-setup.loads.U3 = @(location, state) 1000*sin(.001*state.time);
-setup.loads.U4 = @(location, state) 1000*sin(.001*state.time);
+setup.loads.U1 = @(location, state) 1000*sin(.001*state.time) + 1000;
+setup.loads.U2 = @(location, state) 1000*sin(.001*state.time) + 1000;
+setup.loads.U3 = @(location, state) 1000*sin(.001*state.time) + 1000;
+setup.loads.U4 = @(location, state) 1000*sin(.001*state.time) + 1200;
 setup.ICs.Tinit = 2000;
 
 % Material properties
@@ -38,13 +75,15 @@ setup.material.cp = 386;         % specific heat, J/(kg-K)
 setup.material.tz = 0.01;               % plate thickness in meters
 setup.material.sig = 5.670373e-8;  % Stefan-Boltzmann constant, W/(m^2-K^4)
 setup.material.h = 1+setup.loads.v;               % convection coefficient, W/(m^2-K)
-setup.material.Ta = 300;             % the ambient temperature
+setup.material.Ta = 100;             % the ambient temperature
 setup.material.emiss = 0.5;                % emissivity of the plate surface
 
 % Geometry and mesh
 setup.geometry.width = 1;                  %  plate width, m
 setup.geometry.height = 1;                 %  plate height, m
-setup.geometry.elSize = 0.1;               %  element size, m
+setup.geometry.elSize = 0.05;               %  element size, m
+setup.geometry.xinterp = 0:setup.geometry.elSize:setup.geometry.width;               %  solution interpolation points
+setup.geometry.yinterp = 0:setup.geometry.elSize:setup.geometry.height;              %  solution interpolation points
 
 % solver
 setup.solver.tend = 10000;                 % end time (s)
