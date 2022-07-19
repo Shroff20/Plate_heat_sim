@@ -2,16 +2,16 @@ clear all
 close all
 clc
 
+U = cell(5,1);
+U{1} = @(location, state) 10*sin(.001*state.time) + 800;
+U{2} = @(location, state) 10*sin(.001*state.time) + 1000;
+U{3} = @(location, state) 10*sin(.001*state.time) + 1000;
+U{4} = @(location, state) 10*sin(.001*state.time) + 1200;
+U{5} = @(t)  1+heaviside(t-1000)*200;
+Tinit = 2000;
 
-% v = 1+heaviside(t-1000)*100;      % fluid velocity (m/s)  (must be 2 to 20)
-% setup.loads.U1 = @(location, state) 1000*sin(.001*state.time) + 1000;
-% setup.loads.U2 = @(location, state) 1000*sin(.001*state.time) + 1000;
-% setup.loads.U3 = @(location, state) 1000*sin(.001*state.time) + 1000;
-% setup.loads.U4 = @(location, state) 1000*sin(.001*state.time) + 1200;
-% setup.ICs.Tinit = 2000;
 
-
-[Tinterp, setup, model, results] =  RunPlateSim()
+[Tinterp, setup, model, results] =  RunPlateSim(U, Tinit)
 
 
 hfig1 = PlotGeoemtry(model);
@@ -22,30 +22,32 @@ hfig4 = PlotInterpolatedSolution(Tinterp, setup, -1);
 
 %%
 
-function [Tinterp, setup, model, results] =  RunPlateSim()
-U = []
-velocity = []
-Tinit = []
-
-setup = GetDefaultInputs()
-setup = ModifyLoadsAndICs(setup, U, velocity, Tinit)
-model = MakeModel(setup)
+function [Tinterp, setup, model, results] =  RunPlateSim(U, Tinit)
+disp('-STARTING--------------------------')
+setup = GetDefaultInputs();
+setup = ModifyLoadsAndICs(setup, U, Tinit);
+model = MakeModel(setup);
 [model, results] = SolvePDE(model, setup);
 Tinterp = InterpolateResults(results, setup);
+disp('-SIMULATION COMPLETE---------------')
 
 end 
 
 
 
 
-function setup = ModifyLoadsAndICs(setup, U, velocity, Tinit)
+function setup = ModifyLoadsAndICs(setup, U, Tinit)
 
+setup.ICs.Tinit = Tinit;
+setup.loads.v = U{5};
+setup.loads.BCs = U(1:4);
+disp('     * done modifying BCs and loads')
 
 end 
+
 
 
 function hfig = PlotInterpolatedSolution(Tinterp, setup, frame)
-
 
 
 xinterp = setup.geometry.xinterp;
@@ -62,6 +64,12 @@ Tinterp2 = reshape( Tinterp(:, frame), size(X, 1), []);
 hfig = figure();
 colormap('jet')
 contourf(X, Y, Tinterp2, 250, 'LineColor','none')
+Tinterp = Tinterp(:, frame);
+Tinterp = reshape(Tinterp, size(X, 1), []);
+
+hfig = figure();
+colormap('jet')
+contourf(X, Y, Tinterp, 250, 'LineColor','none')
 colorbar()
 axis equal
 
@@ -93,6 +101,11 @@ U3 = @(location, state) 1000*sin(.001*state.time) + 1000;
 U4 = @(location, state) 1000*sin(.001*state.time) + 1200;
 setup.loads.BCs = {U1, U2, U3, U4};
 setup.ICs.Tinit = 1000;
+setup.loads.U1 = @(location, state) 1000*sin(.001*state.time) + 1000;
+setup.loads.U2 = @(location, state) 1000*sin(.001*state.time) + 1000;
+setup.loads.U3 = @(location, state) 1000*sin(.001*state.time) + 1000;
+setup.loads.U4 = @(location, state) 1000*sin(.001*state.time) + 1200;
+setup.ICs.Tinit = 2000;
 
 % Material properties
 setup.material.k = 400;             % thermal conductivity of copper, W/(m-K)
