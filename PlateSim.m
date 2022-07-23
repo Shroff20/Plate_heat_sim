@@ -6,14 +6,20 @@ clc
 
 inputs = GetExampleInput();  % timepoints x 5 matrix of inputs
 % columns are [T1, T2, T3, T4, velocity]  where T# is the plate edge
-% temperature with time, and velocity is the fluid velocity for convection
+% temperature , and velocity is the fluid velocity for convection
 
 %% RUN AND PLOT
 [dataTable, detailedSimData] =  RunPlateSim(inputs);
 hfig  = MakePlotsFromDetailedSimData(detailedSimData);
  
- 
-%%
+
+
+
+
+
+
+
+
 
 
 %% FUNCTIONS
