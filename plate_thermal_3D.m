@@ -4,20 +4,47 @@ clc
 
 %% INPUTS
 
-U = cell(5,1);
-U{1} = @(location, state) 10*sin(.001*state.time) + 800;                             % temperature of plate edge 1
-U{2} = @(location, state) 50*sin(.001*state.time) + 1000;                            % temperature of plate edge 2
-U{3} = @(location, state) 100*sin(.001*state.time) + 1200;                           % temperature of plate edge 3
-U{4} = @(location, state) 20*sin(.001*state.time) + heaviside(state.time-2000)*1400; % temperature of plate edge 4
-U{5} = @(location, state) 1+heaviside(state.time-1000)*20;                           % velocity of fluid for convection calcs
-Tinit = 70;                                                                          % initial temperature for plate
+tspan = 0:1:600;
+inputs = nan(length(tspan), 5);
+inputs(:, 1) = 70 +  heaviside(tspan-100)*800;
+inputs(:, 2) = 70 +  heaviside(tspan-200)*900;
+inputs(:, 3) = 70 +  heaviside(tspan-300)*1000;
+inputs(:, 4) = 70 +  heaviside(tspan-400)*1100;
+inputs(:, 5) = 1+heaviside(tspan-500)*20;
+% 
+% 
+% U = cell(5,1);
+% for i = 1:size(inputs,2)
+%     U{i} = @(loc, state) interp1(tspan,inputs(:, i),state.time/100,'previous');
+% end
+% disp(U)
 
+
+
+
+%%
+% U = cell(5,1);
+% U{1} = @(location, state) 10*sin(.001*state.time) + 800;                             % temperature of plate edge 1
+% U{2} = @(location, state) 50*sin(.001*state.time) + 1000;                            % temperature of plate edge 2
+% U{3} = @(location, state) 100*sin(.001*state.time) + 1200;                           % temperature of plate edge 3
+% U{4} = @(location, state) 20*sin(.001*state.time) + heaviside(state.time-2000)*1400; % temperature of plate edge 4
+% U{5} = @(location, state) 1+heaviside(state.time-1000)*20;                           % velocity of fluid for convection calcs
+Tinit = 70;                                                                          % initial temperature for plate
+% 
 
 %% RUN AND PLOT
 
-[dataTable, detailedSimData] =  RunPlateSim(U, Tinit);
-
+[dataTable, detailedSimData] =  RunPlateSim(inputs, Tinit);
+hfig  = MakePlotsFromDetailedSimData(detailedSimData);
+ 
+ 
 %%
+
+
+%% FUNCTIONS
+
+function hfig  = MakePlotsFromDetailedSimData(detailedSimData)
+
 
 inputs = detailedSimData.dataTable.Inputs;
 T = detailedSimData.dataTable.Temperature;
@@ -28,18 +55,17 @@ structuralModel = detailedSimData.structuralModel;
 thermalResults = detailedSimData.thermalResults;
 structuralResults = detailedSimData.structuralResults;
 
-
 hfig = figure();
 
 subplot(4,2,1);
 pdegplot(thermalModel,'EdgeLabels','on', 'FaceLabels', 'on', 'FaceAlpha',0.5'); 
 axis equal
-title('geometry');
+title('Geometry');
  
 subplot(4,2,2);
 pdeplot3D(thermalModel); 
 axis equal
-title('mesh');
+title('Mesh');
 xlabel('x');
 ylabel('y');
 
@@ -50,16 +76,8 @@ ylabel('temperature (°F)')
 title('Inputs')
 yyaxis right
 plot(inputs(:,5), 'linewidth', 2)
-legend({'T_1', 'T_2', 'T_3', 'T_4', 'velocity'}, 'Location', 'northeastoutside')
-
-
-subplot(4,2,4)
-plot(inputs(:,5), 'linewidth', 2)
-legend('fluid velocity')
-xlabel('time index')
 ylabel('velocity (m/s)')
-sgtitle('Results')
-title('Inputs')
+legend({'T_1', 'T_2', 'T_3', 'T_4', 'velocity'}, 'Location', 'northeast')
 
 subplot(4,2,5)
 plot(T, 'linewidth', 1)
@@ -67,33 +85,30 @@ ylabel('temperature (°F)')
 title('Nodal Tempereratures')
 xlabel('time index')
 
-subplot(4,2,6)
+subplot(4,2,7)
 plot(S, 'linewidth', 1)
 ylabel('stress (psi)')
 title('Nodal Stresses')
 xlabel('time index')
 
-
-subplot(4,2,7)
+subplot(4,2,6)
 xinterp = setup.geometry.xinterp;
 yinterp = setup.geometry.yinterp;
 [X, Y] = meshgrid(xinterp, yinterp);
 Trs = reshape( T(end, :), size(X, 1), []);
 colormap('jet')
-contourf(X, Y, Trs, 250, 'LineColor','none')
+contourf(X, Y, Trs, 100, 'LineColor','none')
 colorbar()
 axis equal
 title('Final Temperatures')
 
 subplot(4,2,8)
-Trs = reshape( S(end, :), size(X, 1), []);
+Srs = reshape( S(end, :), size(X, 1), []);
 colormap('jet')
-contourf(X, Y, Trs, 250, 'LineColor','none')
+contourf(X, Y, Srs, 100, 'LineColor','none')
 colorbar()
 axis equal
 title('Final Von Mises Stresses')
-
-
 
 
 % subplot(4,2,7)
@@ -112,36 +127,13 @@ title('Final Von Mises Stresses')
 % axis equal;
 % title('Final Stress')
 
-
-% hfig1 = PlotGeoemtry(model);
-% hfig2 = PlotNodalSolutions(results);
-% hfig3 = PlotFieldSolution(model, results, -1);  % -1 for last frame
-% hfig4 = PlotInterpolatedSolution(Tinterp, setup, -1);
-% hfig5 = PlotInputs(results, inputs);
-%%
+end 
 
 
-%%
-% figure()
-% plot(S')
-% 
-% 
-% figure()
-% pdeplot3D(structuralModel, ...
-%           "ColorMapData",structuralResults{end}.VonMisesStress, ...
-%           "Deformation",structuralResults{end}.Displacement)
-%       
-% 
-% disp('     * done interpolating results')
-% PlotInterpolatedSolution(S, setup, -1)      
-% PlotInterpolatedSolution(Tinterp, setup, -1)      
-
-%% FUNCTIONS
-
-function [dataTable, detailedSimData] =  RunPlateSim(U, Tinit)
+function [dataTable, detailedSimData] =  RunPlateSim(inputs, Tinit)
 disp('-STARTING--------------------------')
 setup = GetDefaultInputs();
-setup = ModifyLoadsAndICs(setup, U, Tinit);
+setup = ModifyLoadsAndICs(setup, inputs, Tinit);
 thermalModel = MakeModel(setup);
 [thermalModel, thermalResults, inputs] = SolveTemperature(thermalModel, setup);
 T = InterpolateResults(thermalResults, setup);
@@ -170,15 +162,18 @@ end
 
 
 function [S, structuralResults, structuralModel] = SolveStresses(thermalModel, thermalResults, setup)
+disp('     * starting to solve structural model')
 
 E = setup.material.E;
 poisson = setup.material.poisson;
 alpha = setup.material.alpha;
 density = setup.material.rho;
+Tref = setup.material.Tref;
 
 structuralModel = createpde("structural","static-solid");
 structuralModel.Mesh = thermalModel.Mesh;
 structuralModel.Geometry = thermalModel.Geometry;
+structuralModel.ReferenceTemperature = Tref;  % referance temperature for 0 thermal expansion
 
 pdegplot(structuralModel,"EdgeLabels","on", "VertexLabels","on", 'FaceLabels', 'on');
 structuralProperties(structuralModel,"YoungsModulus",E, "PoissonsRatio",poisson, "MassDensity",density, 'CTE',alpha);
@@ -201,51 +196,22 @@ disp('     * done solving structural model')
 end 
 
 
-function hfig = PlotInputs(results, inputs)
-hfig = figure();
-tspan  = results.SolutionTimes;
-subplot(2,1,1)
-plot(tspan, inputs(1:4,:), 'linewidth', 2)
-legend({'T_1', 'T_2', 'T_3', 'T_4'})
-xlabel('t (s)')
-ylabel('temperature (°F)')
-subplot(2,1,2)
-plot(tspan, inputs(5,:), 'linewidth', 2)
-legend('fluid velocity')
-xlabel('t (s)')
-ylabel('velocity (m/s)')
-sgtitle('Inputs')
-end 
+
+function setup = ModifyLoadsAndICs(setup, inputs, Tinit)
 
 
+U = cell(5,1);
+tspan = (0:size(inputs,1)-1)*setup.solver.dt;
 
-function setup = ModifyLoadsAndICs(setup, U, Tinit)
+for i = 1:size(inputs,2)
+    U{i} = @(loc, state) interp1(tspan,inputs(:, i),state.time,'previous', 'extrap');
+end
 
 setup.ICs.Tinit = Tinit;
 setup.loads.v = U{5};
 setup.loads.BCs = U(1:4);
+setup.solver.tend = tspan(end);
 disp('     * done modifying BCs and loads')
-
-end 
-
-function hfig = PlotInterpolatedSolution(Tinterp, setup, frame)
-
-xinterp = setup.geometry.xinterp;
-yinterp = setup.geometry.yinterp;
-
-[X, Y] = meshgrid(xinterp, yinterp);
-
-if frame ==-1
-    frame  = size(Tinterp, 2);
-end 
-
-Tinterp2 = reshape( Tinterp(:, frame), size(X, 1), []);
-
-hfig = figure();
-colormap('jet')
-contourf(X, Y, Tinterp2, 250, 'LineColor','none')
-colorbar()
-axis equal
 
 end 
 
@@ -294,13 +260,13 @@ setup.material.Tref = 70;             % reference temperature for thermal expans
 setup.geometry.width = 1;                  %  plate width, m
 setup.geometry.height = 1;                 %  plate height, m
 setup.geometry.thickness = .1;                 %  plate thickness, m
-setup.geometry.elSize = 0.1;               %  element size, m
-setup.geometry.xinterp = 0:setup.geometry.elSize:setup.geometry.width;               %  solution interpolation points
-setup.geometry.yinterp = 0:setup.geometry.elSize:setup.geometry.height;              %  solution interpolation points
+setup.geometry.elSize = 0.5;               %  element size, m
+setup.geometry.xinterp = linspace(0, setup.geometry.width, 11);               %  solution interpolation points
+setup.geometry.yinterp = linspace(0, setup.geometry.height, 11);                    %  solution interpolation points
 setup.geometry.zinterp = setup.geometry.thickness/2;                                 %  solution interpolation points
 
 % solver
-setup.solver.tend = 3000;                 % end time (s)
+setup.solver.tend = 5000;                 % end time (s)
 setup.solver.dt = 100;                      % time step (s)
 setup.solver.RelativeTolerance = 1.0e-2;   % solver relative tolerance
 setup.solver.SolverOptions.AbsoluteTolerance = 1.0e-2;  % solver absolute tolerance
@@ -318,6 +284,7 @@ width = setup.geometry.width;
 height = setup.geometry.height;
 thickness = setup.geometry.thickness;
 elSize = setup.geometry.elSize;
+sig = setup.material.sig;
 
 % Qc = hc*(T - Ta);  % heat transfer due to convection
 % Qr = emiss*sig*(T^4 - Ta^4); % heat transfer due to radiation
@@ -335,33 +302,22 @@ K = convhull(x,y,z);
 nodes = [x';y';z'];
 elements = K';
 geometryFromMesh(thermalModel,nodes,elements);
-generateMesh(thermalModel, 'Hmax',elSize)
+generateMesh(thermalModel, 'Hmax',elSize);
 
 thermalProperties(thermalModel,'ThermalConductivity',k,...
                                'MassDensity',rho,...
                                'SpecificHeat',cp);
+                           
+thermalModel.StefanBoltzmannConstant = sig           ;      
+disp('     * done making thermal model')
+                           
 end 
 
-
-function hfig = PlotGeoemtry(model)
-
-hfig = figure();
-subplot(1,2,1);
-pdegplot(model,'EdgeLabels','on', 'FaceLabels', 'on', 'FaceAlpha',0.5'); 
-axis equal
-title('geometry');
- 
-subplot(1,2,2);
-pdeplot3D(model); 
-axis equal
-title('mesh');
-xlabel('x');
-ylabel('y');
-
-end 
 
 
 function [model, results, inputs] = SolveTemperature(model, setup)
+disp('     * starting to solve thermal model')
+
 Ta = setup.material.Ta;
 tend = setup.solver.tend;          
 dt = setup.solver.dt;    
@@ -369,7 +325,6 @@ RelativeTolerance = setup.solver.RelativeTolerance ;
 AbsoluteTolerance = setup.solver.SolverOptions.AbsoluteTolerance ;
 U = setup.loads.BCs;
 Tinit = setup.ICs.Tinit ;
-%hc = setup.loads.v;%@(loc, state) setup.material.h(setup.loads.v(loc, state)) ;
 hc = @(loc, state) setup.material.h(setup.loads.v(loc, state)) ;
 
 thermalBC(model,'Face',[2] ,'Temperature', U{1});
@@ -398,39 +353,7 @@ end
 inputs(5,:) = setup.loads.v([], tmp_state);
 
 
-disp('     * done solving pde')
-
-end 
-
-
-function hfig = PlotNodalSolutions(results)
-u = results.Temperature;
-tlist = results.SolutionTimes;
-hfig = figure(); 
-plot(tlist,u(:,:));
-grid on
-title 'nodal temperatures';
-xlabel 'time (s)';
-ylabel 'temperature';
-end 
-
-
-function hfig = PlotFieldSolution(model, results, frame)
-
-%tlist = results.SolutionTimes;
- 
-u = results.Temperature;
-if frame == -1
-    frame = size(u, 2);
-end
-u = u(:, frame);
-
-hfig = figure;
-pdeplot3D(model,'ColorMapData',u);
-xlabel('x')
-ylabel('y')
-zlabel('z')
-axis equal;
+disp('     * done solving thermal model')
 
 end 
 
