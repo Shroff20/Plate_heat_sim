@@ -3,15 +3,17 @@ close all
 clc
 
 %% INPUTS
-
+output_dir = 'C:\Users\ssmee\Google Drive\Sameer\''s Files\Jobs\Dynamics_and_machine_learning\Plate_NN\Plate_heat_sim';
+casename = 'test';
 inputs = GetExampleInput();  % timepoints x 5 matrix of inputs
 % columns are [T1, T2, T3, T4, velocity]  where T# is the plate edge
 % temperature , and velocity is the fluid velocity for convection
 
+
 %% RUN AND PLOT
 [dataTable, detailedSimData] =  RunPlateSim(inputs);
 hfig  = MakePlotsFromDetailedSimData(detailedSimData);
- 
+SaveDataAndPlots(casename, output_dir, dataTable, hfig)
 
 
 
@@ -20,9 +22,22 @@ hfig  = MakePlotsFromDetailedSimData(detailedSimData);
 
 
 
+%%
 
 
 %% FUNCTIONS
+
+function SaveDataAndPlots(casename, output_dir, dataTable, hfig)
+mkdir([output_dir, filesep, casename])
+csv_name = [output_dir, filesep,casename , filesep , 'data.csv'];
+pdf_name = [output_dir, filesep, casename , filesep , 'plots.pdf'];
+writetable(dataTable, csv_name)
+set(hfig,'PaperSize',[20 20]); 
+print(hfig,pdf_name,'-dpdf', '-painters', '-fillpage') 
+disp(['     * Saved output to ', [output_dir, filesep, casename]])
+
+end 
+
 
 function inputs = GetExampleInput()
 % cols are T1, T2, T3, T4, fluid velocity
@@ -134,10 +149,10 @@ T = InterpolateResults(thermalResults, setup);
 
 
 dataTable = table();
-dataTable.time = thermalResults.SolutionTimes';
-dataTable.Temperature = T';
-dataTable.Stress = S';
-dataTable.Inputs = inputs';
+dataTable.time = single(thermalResults.SolutionTimes');
+dataTable.Temperature = single(T');
+dataTable.Stress = single(S');
+dataTable.Inputs = single(inputs');
 disp(dataTable);
 
 detailedSimData = [];
