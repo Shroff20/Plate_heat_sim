@@ -9,7 +9,7 @@ classdef PlateSimFunctions
         
         [dataTable, detailedSimData] =  PlateSimFunctions.RunPlateSim(inputs);
         hfig  = PlateSimFunctions.MakePlotsFromDetailedSimData(detailedSimData);
-        PlateSimFunctions.SaveDataAndPlots(casename, output_dir, dataTable, hfig)
+        PlateSimFunctions.SaveDataAndPlots(char(casename), output_dir, dataTable, hfig)
 
         end 
         
